@@ -153,12 +153,18 @@ extern "C" void wifi_task( void* param ) {
 
   char last_ip[ 16 ];
 
+  auto start_time = std::chrono::high_resolution_clock::now();
+
   while ( true ) {
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_sec = end_time - start_time;
+    // auto elapsed_hours = std::chrono::duration_cast<std::chrono::hours>( elapsed_sec );
     if ( wifi->is_connected() ) {
       const char* ip = wifi->get_ip();
 
       if ( 
-        ( strcmp( last_ip, ip ) != 0 )
+        ( strcmp( last_ip, ip ) != 0 ) ||
+        ( elapsed_hours > ( std::chrono::seconds( 3600 ) ) )
       ) {
         HttpMessage *msg = (HttpMessage*) malloc( sizeof( HttpMessage ) );
         std::string data = "{ \"machine\": \"" + std::string( MACHINE ) + "\", \"ip\": \"" + std::string( ip ) + "\", \"punches\": \"" + std::string( PUNCHES ) + "\" }";
@@ -170,6 +176,7 @@ extern "C" void wifi_task( void* param ) {
         xQueueSend( httpQueue, &msg, portMAX_DELAY );
 
         ESP_LOGI( "WIFI TASK", "Registered IP: %s", ip );
+        start_time = std::chrono::system_clock::now();
       }
 
       strcpy( last_ip, ip );
