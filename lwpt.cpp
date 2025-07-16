@@ -161,7 +161,7 @@ extern "C" void wifi_task( void* param ) {
         ( strcmp( last_ip, ip ) != 0 )
       ) {
         HttpMessage *msg = (HttpMessage*) malloc( sizeof( HttpMessage ) );
-        std::string data = "{ \"machine\": \"" + std::string( MACHINE ) + "\", \"ip\": \"" + std::string( ip ) + "\" }";
+        std::string data = "{ \"machine\": \"" + std::string( MACHINE ) + "\", \"ip\": \"" + std::string( ip ) + "\", \"punches\": \"" + std::string( PUNCHES ) + "\" }";
   
         msg->url = REGISTER_URL;
         msg->payload = strdup( data.c_str() );
