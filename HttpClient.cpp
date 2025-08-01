@@ -21,9 +21,9 @@ void HttpClient::init() {
   esp_http_client_config_t config = {};
   config.url = "http://localhost.local/";
   config.method = HTTP_METHOD_POST;
-  // config.keep_alive_enable = false;
+  config.keep_alive_enable = false;
   config.timeout_ms = 10000;
-  // config.disable_auto_redirect = true;
+  config.disable_auto_redirect = true;
 
   client = esp_http_client_init( &config );
 }
@@ -45,6 +45,7 @@ std::string HttpClient::send_post( const std::string& url, const std::string& pa
     esp_http_client_set_url( client, url.c_str() );
     esp_http_client_set_method( client, HTTP_METHOD_POST );
     esp_http_client_set_header( client, "Content-Type", content_type.c_str() );
+    esp_http_client_set_header( client, "Connection", "close" );
     esp_http_client_set_post_field( client, payload.c_str(), payload.length() );
 
     esp_err_t err = esp_http_client_perform( client );

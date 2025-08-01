@@ -37,7 +37,7 @@ void send_log( const char* code ) {
 
   // HttpClient::get_instance().send_post( LOG_URL, log.c_str(), "application/json" );
 }
-
+/*
 void send_request() {
   HttpMessage *msg = (HttpMessage*) malloc(sizeof(HttpMessage));
 
@@ -51,7 +51,8 @@ void send_request() {
 
   // HttpClient::get_instance().send_post( SERVER_URL, requestBody.c_str(), "application/json" );
 }
-
+*/
+/*
 void load_data() {
   nvs_handle_t handle;
   esp_err_t err = nvs_open( "storage", NVS_READONLY, &handle );
@@ -90,6 +91,7 @@ static void save_data() {
     ESP_LOGE( "MAIN", "Error Opening NVS for save_data: %s", esp_err_to_name( err ) );
   }
 }
+*/
 
 void http_task( void* param ) {
   HttpMessage *msg;
@@ -111,16 +113,17 @@ void sensor_task( void* param ) {
   Sensor sensor;
 
   while( true ) {
+    /*
     int punches = 0, punchGoal = 0, totalCount = 0;
 
     Job::get_instance().get( punches, punchGoal, totalCount );
-
+    */
     previous_state = current_state;
     current_state = sensor.get_status();
 
     if ( current_state && !previous_state ) {
       ESP_LOGI( "MAIN", "Proximity Sensor: TRIGGERED" ); 
-      
+      /*
       if ( punchGoal != 0 ) {
         punches++;
         if ( punches == punchGoal ) {
@@ -136,9 +139,9 @@ void sensor_task( void* param ) {
 
         save_data();
       }
-
+      */
       send_log( "TRIGGER" );
-      ESP_LOGI( "MAIN", "Status: %d | Punches: %d | Punch Goal: %d | Total Count: %d", current_state, punches, punchGoal, totalCount ); 
+      // ESP_LOGI( "MAIN", "Status: %d | Punches: %d | Punch Goal: %d | Total Count: %d", current_state, punches, punchGoal, totalCount ); 
 
       previous_state = current_state;
     }
@@ -164,7 +167,7 @@ extern "C" void wifi_task( void* param ) {
 
       if ( 
         ( strcmp( last_ip, ip ) != 0 ) ||
-        ( elapsed_hours > ( std::chrono::seconds( 3600 ) ) )
+        ( elapsed_sec > ( std::chrono::seconds( 10 ) ) )
       ) {
         HttpMessage *msg = (HttpMessage*) malloc( sizeof( HttpMessage ) );
         std::string data = "{ \"machine\": \"" + std::string( MACHINE ) + "\", \"ip\": \"" + std::string( ip ) + "\", \"punches\": \"" + std::string( PUNCHES ) + "\" }";
@@ -177,7 +180,10 @@ extern "C" void wifi_task( void* param ) {
 
         ESP_LOGI( "WIFI TASK", "Registered IP: %s", ip );
         start_time = std::chrono::system_clock::now();
-      }
+      } 
+      /* else {
+        ESP_LOGI( "WIFI TASK", "%.4f", elapsed_sec.count() );
+      }*/
 
       strcpy( last_ip, ip );
     } else {
@@ -193,12 +199,12 @@ extern "C" void app_main(void)
   static WifiManager wifi( WIFI_SSID, WIFI_PASS );
   wifi.init( MACHINE_NAME );
 
-  load_data();
+  // load_data();
 
   HttpClient::get_instance().init();
 
-  HttpManager http( MACHINE_NAME );
-  http.start();
+  // HttpManager http( MACHINE_NAME );
+  // http.start();
 
   httpQueue = xQueueCreate( 10, sizeof( HttpMessage* ) );
 
