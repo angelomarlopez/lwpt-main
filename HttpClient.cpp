@@ -35,11 +35,13 @@ void HttpClient::cleanup() {
   }
 }
 
-std::string HttpClient::send_post( const std::string& url, const std::string& payload, const std::string& content_type ) {
+HttpResult HttpClient::send_post(const std::string& url, 
+                                 const std::string& payload, 
+                                 const std::string& content_type ) {
   if ( !client ) init();
 
   const int max_retries = 5;
-  const int delay_ms = 1000;
+  const int base_delay_ms = 500;
 
   for ( int attempt = 1; attempt <= max_retries; ++attempt ) {
     esp_http_client_set_url( client, url.c_str() );
@@ -48,27 +50,27 @@ std::string HttpClient::send_post( const std::string& url, const std::string& pa
     esp_http_client_set_header( client, "Connection", "close" );
     esp_http_client_set_post_field( client, payload.c_str(), payload.length() );
 
-    esp_err_t err = esp_http_client_perform( client );
-    if ( err == ESP_OK ) {
+    HttpResult  r;
+    r.transport = esp_http_client_perform( client );
+    if ( r.transport == ESP_OK ) {
+      r.status = esp_http_client_get_status_code( client );
       char buffer[ 512 ];
-      int read_len = esp_http_client_read_response( client, buffer, sizeof( buffer ) - 1 );
-      if ( read_len >= 0 ) {
-        buffer[ read_len ] = 0;
-        return std::string( buffer );
-      } else {
-        return "Failed to read response.";
-      }
+      int n = esp_http_client_read_response( client, buffer, sizeof( buffer ) - 1 );
+      r.body = (n > 0 ? std::string( buffer, n ) : std::string() );
+
+      if ( r.status >= 200 && r.status < 300 ) return r; // Success
+      ESP_LOGW( TAG, "HTTP %d on attempt %d", r.status, attempt );
     } else {
-      ESP_LOGE( TAG, "Attempt %d: HTTP POST failed: %s\n", attempt, esp_err_to_name( err ) );
-      if ( attempt < max_retries ) {
-        vTaskDelay( pdMS_TO_TICKS( delay_ms ) );
-      } else {
-        return "HTTP POST failed after retries: " + std::string( esp_err_to_name( err ) );
-      }
+      ESP_LOGE( TAG, "Transport error on attempt %d: %s\n", attempt, esp_err_to_name( r.transport ) );
     }
+    
+    if ( attempt < max_retries ) {
+        int delay_ms = std::min( base_delay_ms << ( attempt - 1 ), 8000 );
+        vTaskDelay( pdMS_TO_TICKS( delay_ms ) );
+      }
   }
 
-  return "Unexpected error in send_post";
+  return {}; // Indicates failure
 }
 
 /*

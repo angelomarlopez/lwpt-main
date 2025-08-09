@@ -8,11 +8,11 @@
 #include "esp_log.h"
 #include "nvs.h"
 
-#include "Job.hpp"
+// #include "Job.hpp"
 #include "Sensor.hpp"
 #include "WifiManager.hpp"
 #include "HttpClient.hpp"
-#include "HttpManager.hpp"
+// #include "HttpManager.hpp"
 
 #include "Secret.hpp"
 
@@ -42,12 +42,17 @@ void http_task( void* param ) {
   HttpMessage *msg;
   while ( true ) {
     if ( xQueueReceive( httpQueue, &msg, portMAX_DELAY ) == pdTRUE ) {
-      HttpClient::get_instance().send_post( msg->url, msg->payload, msg->content_type );
+      auto res = HttpClient::get_instance()
+                    .send_post( msg->url, msg->payload, msg->content_type );
       
-      ESP_LOGI( "HTTP TASK", "SUCCESSFUL: %s | %s", msg->url, msg->payload );
-      // free( msg->url );
+      if ( res.transport == ESP_OK && res.status >= 200 && res.status < 300 ) {
+        ESP_LOGI( "HTTP TASK", "OK: %s | %s", msg->url, msg->payload );
+      } else {
+        ESP_LOGE( "HTTP TASK", "FAIL %s | transport=%s status=%d", msg->url, esp_err_to_name( res.transport ), res.status );
+        // TODO: enqueue to persistant retry
+      }
+
       free( msg->payload );
-      // free( msg->content_type );
       free( msg );
     }
   }
@@ -77,22 +82,29 @@ extern "C" void wifi_task( void* param ) {
   WifiManager* wifi = static_cast<WifiManager*>(param);
   ESP_LOGI( "WIFI TASK", "BEGINNING LISTENING!" );
 
-  char last_ip[ 16 ];
+  char last_ip[ 16 ] = "";
 
-  auto start_time = std::chrono::high_resolution_clock::now();
+  auto start_time = std::chrono::steady_clock::now();
 
   while ( true ) {
-    auto end_time = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_sec = end_time - start_time;
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = now - start_time;
+
     if ( wifi->is_connected() ) {
-      const char* ip = wifi->get_ip();
+      char ip_copy[ 16 ];
+      strncpy( ip_copy, wifi->get_ip(), sizeof( ip_copy ) );
+      ip_copy[ sizeof( ip_copy ) - 1 ] = '\0';
 
       if ( 
-        ( strcmp( last_ip, ip ) != 0 ) ||
-        ( elapsed_sec > ( std::chrono::seconds( 10 ) ) )
+        ( strcmp( last_ip, ip_copy ) != 0 ) ||
+        ( elapsed > ( std::chrono::seconds( 10 ) ) )
       ) {
-        HttpMessage *msg = (HttpMessage*) malloc( sizeof( HttpMessage ) );
-        std::string data = "{ \"machine\": \"" + std::string( MACHINE ) + "\", \"ip\": \"" + std::string( ip ) + "\", \"punches\": \"" + std::string( PUNCHES ) + "\" }";
+        HttpMessage *msg = (HttpMessage*)malloc( sizeof( HttpMessage ) );
+        std::string data = std::string( "{ \"machine\": \"" ) + MACHINE + 
+          "\", \"ip\": \"" + ip_copy + 
+          "\", \"punches\": \"" + PUNCHES + 
+          "\", \"department\": \"" + DEPARTMENT +
+          "\" }";
   
         msg->url = REGISTER_URL;
         msg->payload = strdup( data.c_str() );
@@ -100,13 +112,13 @@ extern "C" void wifi_task( void* param ) {
 
         xQueueSend( httpQueue, &msg, portMAX_DELAY );
 
-        ESP_LOGI( "WIFI TASK", "Registered IP: %s", ip );
-        start_time = std::chrono::system_clock::now();
+        ESP_LOGI( "WIFI TASK", "Registered IP: %s", ip_copy );
+        start_time = std::chrono::steady_clock::now();
       } 
-
-      strcpy( last_ip, ip );
+      strncpy( last_ip, ip_copy, sizeof( last_ip ) );
+      last_ip[ sizeof( last_ip ) - 1 ] = '\0';
     } else {
-      strcpy( last_ip, "" );
+      last_ip[ 0 ] = '\0';
     }
 
     vTaskDelay( pdMS_TO_TICKS( 1000 ) );
