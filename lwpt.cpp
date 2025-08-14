@@ -16,7 +16,11 @@
 
 #include "Secret.hpp"
 
-QueueHandle_t httpQueue;
+#ifndef HTTP_QUEUE_LEN
+#define HTTP_QUEUE_LEN 20
+#endif
+
+QueueHandle_t httpQueue = nullptr;
 
 struct HttpMessage {
   char* url;
@@ -132,7 +136,7 @@ extern "C" void app_main(void)
 
   HttpClient::get_instance().init();
 
-  httpQueue = xQueueCreate( 10, sizeof( HttpMessage* ) );
+  httpQueue = xQueueCreate( HTTP_QUEUE_LEN, sizeof( HttpMessage* ) );
 
   xTaskCreate( &wifi_task, "Wifi Task", 4096, &wifi, 3, NULL );
   xTaskCreate( &http_task, "Http Task", 8192, NULL, 4, NULL );

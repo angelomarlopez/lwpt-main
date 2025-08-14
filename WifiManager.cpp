@@ -76,6 +76,8 @@ void WifiManager::wifi_event_handler( void* arg, esp_event_base_t eventBase, int
     ESP_LOGI( TAG, "FAILED TO CONNECT TO WIFI. RECONNECTING..." );
     connected = false;
     esp_wifi_connect();
+  } else if ( eventBase == IP_EVENT && eventID == IP_EVENT_STA_LOST_IP ) {
+    connected = false;
   } else if ( eventBase == IP_EVENT && eventID == IP_EVENT_STA_GOT_IP ) {
     ESP_LOGI( TAG, "CONNECTION SUCCESSFUL. SETTING UP MDNS..." );
 

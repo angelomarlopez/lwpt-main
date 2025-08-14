@@ -8,6 +8,10 @@ HttpClient::HttpClient() : client( nullptr ), default_url( "" ) {}
 
 HttpClient::~HttpClient() {
   cleanup();
+  if ( mutex ) {
+    vSemaphoreDelete( mutex );
+    mutex = nullptr;
+  }
 }
 
 HttpClient& HttpClient::get_instance() {
@@ -15,17 +19,33 @@ HttpClient& HttpClient::get_instance() {
   return instance;
 }
 
+static inline bool take_mutex( SemaphoreHandle_t mtx, TickType_t ticks = pdMS_TO_TICKS( 5000 ) ) {
+  if ( !mtx ) return true;
+  return xSemaphoreTake( mtx, ticks ) == pdTRUE;
+}
+
+static inline void give_mutex( SemaphoreHandle_t mtx ) {
+  if ( mtx ) xSemaphoreGive( mtx );
+}
+
 void HttpClient::init() {
-  if ( client != nullptr ) return;
+  /*if ( client != nullptr ) return;
 
   esp_http_client_config_t config = {};
   config.url = "http://localhost.local/";
   config.method = HTTP_METHOD_POST;
   config.keep_alive_enable = false;
-  config.timeout_ms = 10000;
+  config.timeout_ms = 5000;
   config.disable_auto_redirect = true;
 
   client = esp_http_client_init( &config );
+  */
+  if ( !mutex ) {
+    mutex = xSemaphoreCreateMutex();
+    if ( !mutex ) {
+      ESP_LOGE( TAG, "FAILED to create HTTP mutex" );
+    }
+  }
 }
 
 void HttpClient::cleanup() {
@@ -38,26 +58,53 @@ void HttpClient::cleanup() {
 HttpResult HttpClient::send_post(const std::string& url, 
                                  const std::string& payload, 
                                  const std::string& content_type ) {
-  if ( !client ) init();
+  // if ( !client ) init();
 
-  const int max_retries = 5;
-  const int base_delay_ms = 500;
+  // const int max_retries = 5;
+  // const int base_delay_ms = 500;
 
-  for ( int attempt = 1; attempt <= max_retries; ++attempt ) {
-    esp_http_client_set_url( client, url.c_str() );
-    esp_http_client_set_method( client, HTTP_METHOD_POST );
-    esp_http_client_set_header( client, "Content-Type", content_type.c_str() );
-    esp_http_client_set_header( client, "Connection", "close" );
-    esp_http_client_set_post_field( client, payload.c_str(), payload.length() );
+  // for ( int attempt = 1; attempt <= max_retries; ++attempt ) {
+  HttpResult r;
 
-    HttpResult  r;
-    r.transport = esp_http_client_perform( client );
-    if ( r.transport == ESP_OK ) {
-      r.status = esp_http_client_get_status_code( client );
-      char buffer[ 512 ];
-      int n = esp_http_client_read_response( client, buffer, sizeof( buffer ) - 1 );
-      r.body = (n > 0 ? std::string( buffer, n ) : std::string() );
+  if ( !take_mutex( mutex ) ) {
+    ESP_LOGE( TAG, "HTTP mutex timeout" );
+    r.transport = ESP_ERR_TIMEOUT;
+    return r;
+  }
 
+  esp_http_client_config_t cfg = {};
+  cfg.url = url.c_str();
+  cfg.timeout_ms = 5000;
+  cfg.keep_alive_enable = false;
+
+  client = esp_http_client_init( &cfg );
+  if ( !client ) {
+    ESP_LOGE( TAG, "esp_http_client_init failed" );
+    give_mutex( mutex );
+    r.transport = ESP_ERR_NO_MEM;
+    return r;
+  }
+  
+  // esp_http_client_set_url( client, url.c_str() );
+  esp_http_client_set_method( client, HTTP_METHOD_POST );
+  esp_http_client_set_header( client, "Content-Type", content_type.c_str() );
+  esp_http_client_set_header( client, "Connection", "close" );
+  esp_http_client_set_post_field( client, payload.c_str(), payload.length() );
+
+    // HttpResult  r;
+  r.transport = esp_http_client_perform( client );
+  if ( r.transport == ESP_OK ) {
+    r.status = esp_http_client_get_status_code( client );
+      
+    char buffer[ 256 ];
+    int n; // = esp_http_client_read_response( client, buffer, sizeof( buffer ) - 1 );
+    while ( ( n = esp_http_client_read_response( client, buffer, sizeof( buffer ))) > 0 ) {
+      r.body.append( buffer, buffer + n );
+    }
+  } else {
+    ESP_LOGW( TAG, "perform err=%d", (int)r.transport );
+  }
+  /*
       if ( r.status >= 200 && r.status < 300 ) return r; // Success
       ESP_LOGW( TAG, "HTTP %d on attempt %d", r.status, attempt );
     } else {
@@ -71,6 +118,12 @@ HttpResult HttpClient::send_post(const std::string& url,
   }
 
   return {}; // Indicates failure
+*/
+  esp_http_client_cleanup( client );
+  client = nullptr;
+
+  give_mutex( mutex );
+  return r;
 }
 
 /*

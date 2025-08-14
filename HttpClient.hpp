@@ -2,6 +2,7 @@
 #define HTTP_CLIENT_HPP
 
 #include "esp_http_client.h"
+#include "freertos/semphr.h"
 #include <string>
 
 struct HttpResult {
@@ -24,6 +25,8 @@ private:
   ~HttpClient();
   HttpClient( const HttpClient& ) = delete;
   HttpClient& operator=( const HttpClient& ) = delete;
+
+  SemaphoreHandle_t mutex = nullptr;
 
   esp_http_client_handle_t client;
   std::string default_url;
