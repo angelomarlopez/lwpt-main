@@ -129,6 +129,27 @@ extern "C" void wifi_task( void* param ) {
   }
 }
 
+/*
+extern "C" void relay_task(void *pvParameters) {
+  // Configure the relay GPIO as output
+  gpio_config_t io_conf = {};
+  io_conf.intr_type = GPIO_INTR_DISABLE;
+  io_conf.mode = GPIO_MODE_OUTPUT;
+  io_conf.pin_bit_mask = (1ULL << RELAY_GPIO);
+  io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+  gpio_config(&io_conf);
+
+  int level = 0;
+
+  while(true) {
+    level = !level;
+    gpio_set_level( RELAY_GPIO, level );
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+}
+*/
+
 extern "C" void app_main(void)
 {
   static WifiManager wifi( WIFI_SSID, WIFI_PASS );
@@ -141,4 +162,6 @@ extern "C" void app_main(void)
   xTaskCreate( &wifi_task, "Wifi Task", 4096, &wifi, 3, NULL );
   xTaskCreate( &http_task, "Http Task", 8192, NULL, 4, NULL );
   xTaskCreate( &sensor_task, "Sensor Task", 4096, NULL, 5, NULL );
+
+  // xTaskCreate( &relay_task, "Relay Task", 2048, NULL, 2, NULL );
 }

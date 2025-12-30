@@ -4,6 +4,7 @@
 #include "driver/gpio.h"
 
 #define SENSOR_PIN GPIO_NUM_32
+#define RELAY_GPIO GPIO_NUM_2
 
 class Sensor {
   gpio_config_t ioConf;
