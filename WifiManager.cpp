@@ -3,6 +3,9 @@
 #include <nvs_flash.h>
 #include <esp_log.h>
 
+#include "freertos/task.h"
+#include "esp_sntp.h"
+
 #include <esp_wifi.h>
 #include <esp_event.h>
 #include <esp_netif.h>
@@ -14,12 +17,16 @@
 #include <cstring>
 #include <assert.h>
 #include <inttypes.h>
+#include <ctime>
+#include <cstdlib>
 
 static const char* TAG = "WIFI MANAGER";
 
 const char* WifiManager::hostname = NULL;
 char WifiManager::ip[ 16 ] = {0};
 bool WifiManager::connected = false;
+bool WifiManager::time_synced = false;
+bool WifiManager::time_sync_in_progress = false;
 
 WifiManager::WifiManager( const char* ssid, const char* password ) : ssid( ssid ), password ( password ) {}
 
@@ -104,5 +111,63 @@ void WifiManager::wifi_event_handler( void* arg, esp_event_base_t eventBase, int
     // ESP_LOGI( TAG, "GOT IP: " IPSTR "\n", IP2STR( &event->ip_info.ip ) );
     ESP_LOGI( TAG, "GOT IP: %s", ip );
     connected = true;
+
+    start_time_sync();
   } 
+}
+
+void WifiManager::start_time_sync() {
+  if ( time_synced || time_sync_in_progress ) { return; }
+  time_sync_in_progress = true;
+
+  BaseType_t ok = xTaskCreate( 
+      &WifiManager::time_sync_task,
+      "time_sync",
+      4096,
+      nullptr,
+      5,
+      nullptr
+  );
+  if ( ok != pdPASS ) {
+    ESP_LOGE( TAG, "Failed to create time_sync task" );
+    time_sync_in_progress = false;
+  }
+}
+
+void WifiManager::time_sync_task( void* ) {
+  setenv( "TZ", "CST6CDT,M3.2.0/2,M11.1.0/2", 1 );
+  tzset();
+
+  ESP_LOGI( TAG, "Starting SNTP time sync..." );
+
+  esp_sntp_setoperatingmode( SNTP_OPMODE_POLL );
+  esp_sntp_setservername( 0, "pool.ntp.org" );
+  esp_sntp_init();
+
+  time_t now = 0;
+  struct tm timeinfo = {};
+
+  const int max_retries = 20;
+  for ( int i = 0; i < max_retries; ++i ) {
+      time( &now );
+      localtime_r( &now, &timeinfo );
+
+      if ( ( timeinfo.tm_year + 1900 ) >= 2020 ) {
+        char buf[ 32 ];
+        strftime( buf, sizeof( buf ), "%m/%d/%Y %H:%M:%S", &timeinfo );
+        ESP_LOGI( TAG, "Time synced: %s", buf );
+        time_synced = true;
+        break;
+      }
+
+      ESP_LOGI( TAG, "Waiting for SNTP... (%d/%d)", i + 1, max_retries );
+      vTaskDelay( pdMS_TO_TICKS( 1000 ) );
+  }
+
+  if ( !time_synced ) {
+    ESP_LOGW( TAG, "SNTP sync timed out; time may still be 1970." );
+  }
+
+  time_sync_in_progress = false;
+  vTaskDelete( nullptr );
 }

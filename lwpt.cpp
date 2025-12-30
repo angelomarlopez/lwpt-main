@@ -8,7 +8,7 @@
 #include "esp_log.h"
 #include "nvs.h"
 
-// #include "Job.hpp"
+#include "Job.hpp"
 #include "Sensor.hpp"
 #include "WifiManager.hpp"
 #include "HttpClient.hpp"
@@ -71,9 +71,8 @@ void sensor_task( void* param ) {
     current_state = sensor.get_status();
 
     if ( current_state && !previous_state ) {
-      ESP_LOGI( "MAIN", "Proximity Sensor: TRIGGERED" );
-
-      // send_log( "TRIGGER" );
+      Job& job = Job::get_instance();
+      job.increment();
       
       previous_state = current_state;
     }

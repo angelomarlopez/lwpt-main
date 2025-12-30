@@ -24,8 +24,13 @@ private:
   static const char* hostname;
   static char ip[ 16 ];
   static bool connected;
+  static bool time_synced;
+  static bool time_sync_in_progress;
 
   static void wifi_event_handler( void*, esp_event_base_t, int32_t, void* );
+
+  static void start_time_sync();
+  static void time_sync_task( void* );
 };
 
 #endif

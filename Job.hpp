@@ -24,23 +24,17 @@ class Job {
       updated_on = now;
       timedout_on = 0;
       xSemaphoreGive( mutex );
-      
-      ESP_LOGI( 
-        "JOB (start_new)", 
-        "punch_count=%d, created_on=%s, updated_on=%s, timedout_on=%s",
-        punch_count,
-        to_mdy_hms_local( created_on ).c_str(),
-        to_mdy_hms_local( updated_on ).c_str(),
-        to_mdy_hms_local( timedout_on ).c_str()
-      );
+
+      log( "JOB( START )" );
     }
 
-    void increment_punch_count( int delta = 1 ) {
+    void increment( int delta = 1 ) {
       const time_t now = time( nullptr );
       xSemaphoreTake( mutex, portMAX_DELAY );
       punch_count += delta;
       updated_on = now;
       xSemaphoreGive( mutex );
+      log( "JOB( INCREMENT )" );
     }
 
     void mark_timed_out() {
@@ -48,6 +42,18 @@ class Job {
       xSemaphoreTake( mutex, portMAX_DELAY );
       timedout_on = now;
       xSemaphoreGive( mutex );
+      log( "JOB( TIMED OUT )" );
+    }
+
+    void log( const char* f ) {
+      ESP_LOGI( 
+        f, 
+        "punch_count=%d, created_on=%s, updated_on=%s, timedout_on=%s",
+        punch_count,
+        to_mdy_hms_local( created_on ).c_str(),
+        to_mdy_hms_local( updated_on ).c_str(),
+        to_mdy_hms_local( timedout_on ).c_str()
+      );
     }
 
     static std::string to_mdy_hms_local( time_t t ) {
