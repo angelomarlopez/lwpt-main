@@ -14,8 +14,8 @@ private:
   httpd_handle_t server;
   const char* hostname;
 
-  static esp_err_t handle_root_request( httpd_req_t* req );
-  static esp_err_t handle_post_request( httpd_req_t* req );
+  static esp_err_t handle_ping_request( httpd_req_t* req );
+  static esp_err_t handle_start_request( httpd_req_t* req );
 };
 
 #endif

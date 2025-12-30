@@ -11,9 +11,7 @@ public:
   void init( const char* machine );
 
   const char* get_ip() const {
-    // char* copy = new char[ 16 ];
-    // strncpy( copy, ip, 16 );
-    return ip; // copy;
+    return ip;
   }
 
   bool is_connected() const {

@@ -12,7 +12,7 @@
 #include "Sensor.hpp"
 #include "WifiManager.hpp"
 #include "HttpClient.hpp"
-// #include "HttpManager.hpp"
+#include "HttpManager.hpp"
 
 #include "Secret.hpp"
 
@@ -28,7 +28,7 @@ struct HttpMessage {
   char* content_type;
 };
 
-void send_log( const char* code ) {
+/*void send_log( const char* code ) {
   HttpMessage *msg = (HttpMessage*) malloc( sizeof( HttpMessage ) );
   
   std::string log = "{ \"machine\": \"" + std::string( MACHINE ) + "\", \"code\": \"" + std::string( code ) + "\" }";
@@ -60,7 +60,7 @@ void http_task( void* param ) {
       free( msg );
     }
   }
-}
+}*/
 
 void sensor_task( void* param ) {
   bool previous_state, current_state = true;
@@ -73,7 +73,7 @@ void sensor_task( void* param ) {
     if ( current_state && !previous_state ) {
       ESP_LOGI( "MAIN", "Proximity Sensor: TRIGGERED" );
 
-      send_log( "TRIGGER" );
+      // send_log( "TRIGGER" );
       
       previous_state = current_state;
     }
@@ -103,7 +103,7 @@ extern "C" void wifi_task( void* param ) {
         ( strcmp( last_ip, ip_copy ) != 0 ) ||
         ( elapsed > ( std::chrono::seconds( 10 ) ) )
       ) {
-        HttpMessage *msg = (HttpMessage*)malloc( sizeof( HttpMessage ) );
+        /*HttpMessage *msg = (HttpMessage*)malloc( sizeof( HttpMessage ) );
         std::string data = std::string( "{ \"machine\": \"" ) + MACHINE + 
           "\", \"ip\": \"" + ip_copy + 
           "\", \"punches\": \"" + PUNCHES + 
@@ -115,6 +115,7 @@ extern "C" void wifi_task( void* param ) {
         msg->content_type = "application/json";
 
         xQueueSend( httpQueue, &msg, portMAX_DELAY );
+        */
 
         ESP_LOGI( "WIFI TASK", "Registered IP: %s", ip_copy );
         start_time = std::chrono::steady_clock::now();
@@ -129,39 +130,19 @@ extern "C" void wifi_task( void* param ) {
   }
 }
 
-/*
-extern "C" void relay_task(void *pvParameters) {
-  // Configure the relay GPIO as output
-  gpio_config_t io_conf = {};
-  io_conf.intr_type = GPIO_INTR_DISABLE;
-  io_conf.mode = GPIO_MODE_OUTPUT;
-  io_conf.pin_bit_mask = (1ULL << RELAY_GPIO);
-  io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-  gpio_config(&io_conf);
-
-  int level = 0;
-
-  while(true) {
-    level = !level;
-    gpio_set_level( RELAY_GPIO, level );
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  }
-}
-*/
-
 extern "C" void app_main(void)
 {
   static WifiManager wifi( WIFI_SSID, WIFI_PASS );
   wifi.init( MACHINE_NAME );
+
+  HttpManager http( MACHINE_NAME );
+  http.start();
 
   HttpClient::get_instance().init();
 
   httpQueue = xQueueCreate( HTTP_QUEUE_LEN, sizeof( HttpMessage* ) );
 
   xTaskCreate( &wifi_task, "Wifi Task", 4096, &wifi, 3, NULL );
-  xTaskCreate( &http_task, "Http Task", 8192, NULL, 4, NULL );
+  // xTaskCreate( &http_task, "Http Task", 8192, NULL, 4, NULL );
   xTaskCreate( &sensor_task, "Sensor Task", 4096, NULL, 5, NULL );
-
-  // xTaskCreate( &relay_task, "Relay Task", 2048, NULL, 2, NULL );
 }

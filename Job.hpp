@@ -1,7 +1,13 @@
 #pragma once
+
 #include <string>
+#include <ctime>
+#include <cstdio>
+#include <cstdint>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "esp_log.h"
 
 class Job {
   public:
@@ -10,30 +16,65 @@ class Job {
       return instance;
     }
 
-    void set( int p, int pg, int tc )  {
+    void start_new() {
+      const time_t now = time( nullptr );
       xSemaphoreTake( mutex, portMAX_DELAY );
-      punches = p;
-      punchGoal = pg;
-      totalCount = tc;
+      punch_count = 0;
+      created_on = now;
+      updated_on = now;
+      timedout_on = 0;
+      xSemaphoreGive( mutex );
+      
+      ESP_LOGI( 
+        "JOB (start_new)", 
+        "punch_count=%d, created_on=%s, updated_on=%s, timedout_on=%s",
+        punch_count,
+        to_mdy_hms_local( created_on ).c_str(),
+        to_mdy_hms_local( updated_on ).c_str(),
+        to_mdy_hms_local( timedout_on ).c_str()
+      );
+    }
+
+    void increment_punch_count( int delta = 1 ) {
+      const time_t now = time( nullptr );
+      xSemaphoreTake( mutex, portMAX_DELAY );
+      punch_count += delta;
+      updated_on = now;
       xSemaphoreGive( mutex );
     }
 
-    void get( int& p, int& pg, int& tc ) {
+    void mark_timed_out() {
+      const time_t now = time( nullptr );
       xSemaphoreTake( mutex, portMAX_DELAY );
-      p = punches;
-      pg = punchGoal;
-      tc = totalCount;
+      timedout_on = now;
       xSemaphoreGive( mutex );
     }
 
-    int punches;
-    int punchGoal;
-    int totalCount;
+    static std::string to_mdy_hms_local( time_t t ) {
+      if ( t == 0 ) return "N/A";
+      struct tm tm_local;
+      localtime_r( &t, &tm_local );
+
+      char buf[ 32 ];
+      const size_t n = strftime( buf, sizeof( buf ), "%m/%d/%Y %H:%M:%S", &tm_local );
+      return ( n > 0 ) ? std::string( buf ) : std::string( "N/A" );
+    }
 
   private:
-    Job() : punches( 0 ), punchGoal( 0 ), totalCount( 0 ) { mutex = xSemaphoreCreateMutex(); }
+    Job()
+    : punch_count( 0 ),
+      created_on( time( nullptr ) ),
+      updated_on( created_on ),
+      timedout_on( 0 ),
+      mutex( xSemaphoreCreateMutex() ) {}
+
     Job( const Job& ) = delete;
     Job &operator=( const Job& ) = delete;
+
+    int punch_count;
+    time_t created_on;
+    time_t updated_on;
+    time_t timedout_on;
 
     SemaphoreHandle_t mutex;
 };
