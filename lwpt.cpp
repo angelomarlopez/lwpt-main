@@ -10,6 +10,7 @@
 
 #include "Job.hpp"
 #include "Sensor.hpp"
+#include "Relay.hpp"
 #include "WifiManager.hpp"
 #include "HttpClient.hpp"
 #include "HttpManager.hpp"
@@ -41,6 +42,18 @@ struct HttpMessage {
 
   // HttpClient::get_instance().send_post( LOG_URL, log.c_str(), "application/json" );
 }
+*/
+
+void send_job_update() {
+  HttpMessage* msg = (HttpMessage*) malloc( sizeof( HttpMessage ) );
+  std::string data = "";
+
+  msg->url = SERVER_URL "update";
+  msg->payload = strdup( data.c_str() );
+  msg->content_type = "application/json";
+
+  xQueueSend( httpQueue, &msg, portMAX_DELAY );
+}
 
 void http_task( void* param ) {
   HttpMessage *msg;
@@ -60,19 +73,33 @@ void http_task( void* param ) {
       free( msg );
     }
   }
-}*/
+}
 
 void sensor_task( void* param ) {
   bool previous_state, current_state = true;
   Sensor sensor;
+  Relay relay;
 
   while( true ) {
     previous_state = current_state;
     current_state = sensor.get_status();
 
+    Job& job = Job::get_instance();
+
+    if ( job.is_running() ) {
+      int delta = job.seconds_since_updated();
+      // TODO: Send HTTP Warning on 15 min(900 sec)
+      // TODO: Send HTTP Timeout on 20 min(1200 sec)
+
+      if ( relay.is_on() ) { relay.off(); }
+    } else {
+      if ( !relay.is_on() ) { relay.on(); }
+    }
+
     if ( current_state && !previous_state ) {
-      Job& job = Job::get_instance();
       job.increment();
+
+      // TODO: Send HTTP Job Update
       
       previous_state = current_state;
     }
@@ -100,21 +127,20 @@ extern "C" void wifi_task( void* param ) {
 
       if ( 
         ( strcmp( last_ip, ip_copy ) != 0 ) ||
-        ( elapsed > ( std::chrono::seconds( 10 ) ) )
+        ( elapsed > ( std::chrono::seconds( 60 ) ) )
       ) {
-        /*HttpMessage *msg = (HttpMessage*)malloc( sizeof( HttpMessage ) );
+        HttpMessage *msg = (HttpMessage*)malloc( sizeof( HttpMessage ) );
         std::string data = std::string( "{ \"machine\": \"" ) + MACHINE + 
           "\", \"ip\": \"" + ip_copy + 
           "\", \"punches\": \"" + PUNCHES + 
           "\", \"department\": \"" + DEPARTMENT +
           "\" }";
   
-        msg->url = REGISTER_URL;
+        msg->url = SERVER_URL "register";
         msg->payload = strdup( data.c_str() );
         msg->content_type = "application/json";
 
         xQueueSend( httpQueue, &msg, portMAX_DELAY );
-        */
 
         ESP_LOGI( "WIFI TASK", "Registered IP: %s", ip_copy );
         start_time = std::chrono::steady_clock::now();
@@ -142,6 +168,6 @@ extern "C" void app_main(void)
   httpQueue = xQueueCreate( HTTP_QUEUE_LEN, sizeof( HttpMessage* ) );
 
   xTaskCreate( &wifi_task, "Wifi Task", 4096, &wifi, 3, NULL );
-  // xTaskCreate( &http_task, "Http Task", 8192, NULL, 4, NULL );
+  xTaskCreate( &http_task, "Http Task", 8192, NULL, 4, NULL );
   xTaskCreate( &sensor_task, "Sensor Task", 4096, NULL, 5, NULL );
 }

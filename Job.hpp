@@ -23,6 +23,7 @@ class Job {
       created_on = now;
       updated_on = now;
       timedout_on = 0;
+      running = true;
       xSemaphoreGive( mutex );
 
       log( "JOB( START )" );
@@ -41,6 +42,7 @@ class Job {
       const time_t now = time( nullptr );
       xSemaphoreTake( mutex, portMAX_DELAY );
       timedout_on = now;
+      running = false;
       xSemaphoreGive( mutex );
       log( "JOB( TIMED OUT )" );
     }
@@ -66,12 +68,27 @@ class Job {
       return ( n > 0 ) ? std::string( buf ) : std::string( "N/A" );
     }
 
+    bool is_running() { return running; }
+
+    time_t get_updated_on() {
+      xSemaphoreTake( mutex, portMAX_DELAY );
+      const time_t v = updated_on;
+      xSemaphoreGive( mutex );
+      return v;
+    }
+
+    int64_t seconds_since_updated() {
+      const time_t now = time( nullptr );
+      return difftime( now, get_updated_on() );
+    }
+
   private:
     Job()
     : punch_count( 0 ),
       created_on( time( nullptr ) ),
       updated_on( created_on ),
       timedout_on( 0 ),
+      running( false ),
       mutex( xSemaphoreCreateMutex() ) {}
 
     Job( const Job& ) = delete;
@@ -81,6 +98,7 @@ class Job {
     time_t created_on;
     time_t updated_on;
     time_t timedout_on;
+    bool running;
 
     SemaphoreHandle_t mutex;
 };
