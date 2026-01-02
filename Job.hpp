@@ -76,6 +76,20 @@ class Job {
       xSemaphoreGive( mutex );
       return v;
     }
+    
+    time_t get_timedout_on() {
+      xSemaphoreTake( mutex, portMAX_DELAY );
+      const time_t v = timedout_on;
+      xSemaphoreGive( mutex );
+      return v;
+    }
+
+    int get_punch_count() {
+      xSemaphoreTake( mutex, portMAX_DELAY );
+      int pc = punch_count;
+      xSemaphoreGive( mutex );
+      return pc;
+    }
 
     int64_t seconds_since_updated() {
       const time_t now = time( nullptr );

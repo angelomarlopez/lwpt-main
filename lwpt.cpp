@@ -29,26 +29,17 @@ struct HttpMessage {
   char* content_type;
 };
 
-/*void send_log( const char* code ) {
-  HttpMessage *msg = (HttpMessage*) malloc( sizeof( HttpMessage ) );
-  
-  std::string log = "{ \"machine\": \"" + std::string( MACHINE ) + "\", \"code\": \"" + std::string( code ) + "\" }";
-  
-  msg->url = LOG_URL;
-  msg->payload = strdup( log.c_str() );
-  msg->content_type = "application/json";
+void send_job_update( const char* route ) {
+  Job& job = Job::get_instance();
 
-  xQueueSend( httpQueue, &msg, portMAX_DELAY );
-
-  // HttpClient::get_instance().send_post( LOG_URL, log.c_str(), "application/json" );
-}
-*/
-
-void send_job_update() {
   HttpMessage* msg = (HttpMessage*) malloc( sizeof( HttpMessage ) );
-  std::string data = "";
+  std::string data = "{ \"machine\": \"" + std::string( MACHINE ) + 
+    "\", \"updated_on\": \"" + job.to_mdy_hms_local( job.get_updated_on() ) +
+    "\", \"timedout_on\": \"" + job.to_mdy_hms_local( job.get_timedout_on() ) +
+    "\", \"punch_count\": " + std::to_string( job.get_punch_count() ) +
+    " }";
 
-  msg->url = SERVER_URL "update";
+  msg->url = strdup( std::string( std::string( SERVER_URL ) + std::string( route ) ).c_str() );
   msg->payload = strdup( data.c_str() );
   msg->content_type = "application/json";
 
@@ -75,7 +66,7 @@ void http_task( void* param ) {
   }
 }
 
-void sensor_task( void* param ) {
+void main_task( void* param ) {
   bool previous_state, current_state = true;
   Sensor sensor;
   Relay relay;
@@ -87,21 +78,30 @@ void sensor_task( void* param ) {
     Job& job = Job::get_instance();
 
     if ( job.is_running() ) {
+      if ( current_state && !previous_state ) {
+        job.increment();
+
+        send_job_update( "update" );
+      
+        previous_state = current_state;
+      }
+
       int delta = job.seconds_since_updated();
-      // TODO: Send HTTP Warning on 15 min(900 sec)
-      // TODO: Send HTTP Timeout on 20 min(1200 sec)
+      
+      if ( delta > 9 && delta < 12 ) {
+        // TODO: Send HTTP Warning on 15min(900 sec)
+        // Note: Should only send once
+        send_job_update( "warning" );
+      } 
+      else if ( delta > 12 ) {
+        job.mark_timed_out();
+
+        send_job_update( "timedout" );
+      }
 
       if ( relay.is_on() ) { relay.off(); }
     } else {
       if ( !relay.is_on() ) { relay.on(); }
-    }
-
-    if ( current_state && !previous_state ) {
-      job.increment();
-
-      // TODO: Send HTTP Job Update
-      
-      previous_state = current_state;
     }
 
     vTaskDelay( pdMS_TO_TICKS( 100 ) );
@@ -169,5 +169,5 @@ extern "C" void app_main(void)
 
   xTaskCreate( &wifi_task, "Wifi Task", 4096, &wifi, 3, NULL );
   xTaskCreate( &http_task, "Http Task", 8192, NULL, 4, NULL );
-  xTaskCreate( &sensor_task, "Sensor Task", 4096, NULL, 5, NULL );
+  xTaskCreate( &main_task, "Main Task", 4096, NULL, 5, NULL );
 }
