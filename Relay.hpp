@@ -3,7 +3,7 @@
 
 #include "driver/gpio.h"
 
-#define RELAY_PIN GPIO_NUM_2
+#define RELAY_PIN GPIO_NUM_26
 
 class Relay {
   gpio_config_t ioConf;
