@@ -24,6 +24,7 @@ class Job {
       updated_on = now;
       timedout_on = 0;
       running = true;
+      warning_sent = false;
       xSemaphoreGive( mutex );
 
       log( "JOB( START )" );
@@ -34,6 +35,7 @@ class Job {
       xSemaphoreTake( mutex, portMAX_DELAY );
       punch_count += delta;
       updated_on = now;
+      warning_sent = false;
       xSemaphoreGive( mutex );
       log( "JOB( INCREMENT )" );
     }
@@ -43,6 +45,7 @@ class Job {
       xSemaphoreTake( mutex, portMAX_DELAY );
       timedout_on = now;
       running = false;
+      warning_sent = false;
       xSemaphoreGive( mutex );
       log( "JOB( TIMED OUT )" );
     }
@@ -69,6 +72,9 @@ class Job {
     }
 
     bool is_running() { return running; }
+    bool is_warning_sent() { return warning_sent; }
+    
+    void set_warning_sent( bool r) { warning_sent = r; }
 
     time_t get_updated_on() {
       xSemaphoreTake( mutex, portMAX_DELAY );
@@ -103,6 +109,7 @@ class Job {
       updated_on( created_on ),
       timedout_on( 0 ),
       running( false ),
+      warning_sent( false ),
       mutex( xSemaphoreCreateMutex() ) {}
 
     Job( const Job& ) = delete;
@@ -113,6 +120,7 @@ class Job {
     time_t updated_on;
     time_t timedout_on;
     bool running;
+    bool warning_sent;
 
     SemaphoreHandle_t mutex;
 };
