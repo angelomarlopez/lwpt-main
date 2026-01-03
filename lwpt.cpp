@@ -89,7 +89,7 @@ void main_task( void* param ) {
       int delta = job.seconds_since_updated();
       
       if ( 
-        ( delta > 9 && delta < 12 ) &&
+        ( delta > 90 && delta < 120 ) &&
         !job.is_warning_sent()
       ) {
         // TODO: Send HTTP Warning on 15min(900 sec)
@@ -97,7 +97,7 @@ void main_task( void* param ) {
         send_job_update( "warning" );
         job.set_warning_sent( true );
       } 
-      else if ( delta > 12 ) {
+      else if ( delta > 120 ) {
         job.mark_timed_out();
 
         send_job_update( "timedout" );
