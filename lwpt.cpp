@@ -33,7 +33,7 @@ void send_job_update( const char* route ) {
   Job& job = Job::get_instance();
 
   HttpMessage* msg = (HttpMessage*) malloc( sizeof( HttpMessage ) );
-  std::string data = "{ \"machine\": \"" + std::string( MACHINE ) + 
+  std::string data = "{ \"machine_id\": \"" + std::string( MACHINE ) + 
     "\", \"updated_on\": \"" + job.to_mdy_hms_local( job.get_updated_on() ) +
     "\", \"timedout_on\": \"" + job.to_mdy_hms_local( job.get_timedout_on() ) +
     "\", \"punch_count\": " + std::to_string( job.get_punch_count() ) +
