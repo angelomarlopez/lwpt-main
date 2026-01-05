@@ -138,6 +138,7 @@ extern "C" void wifi_task( void* param ) {
           "\", \"ip\": \"" + ip_copy + 
           "\", \"punches\": \"" + PUNCHES + 
           "\", \"department\": \"" + DEPARTMENT +
+          "\", \"work_center\": \"" + WORK_CENTER + 
           "\" }";
   
         msg->url = SERVER_URL "register";
