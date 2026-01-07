@@ -1,6 +1,9 @@
 #ifndef WIFI_MANAGER_HPP
 #define WIFI_MANAGER_HPP
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #include <esp_wifi.h>
 #include <esp_event.h>
 #include <string.h>
@@ -10,13 +13,11 @@ public:
   WifiManager( const char* ssid, const char* password );
   void init( const char* machine );
 
-  const char* get_ip() const {
-    return ip;
-  }
+  const char* get_ip() const { return ip; }
+  bool is_connected() const { return connected; }
 
-  bool is_connected() const {
-    return connected;
-  }
+  bool wait_for_time_sync( TickType_t timeout_ticks = pdMS_TO_TICKS( 25000 ) ) const ;
+  static bool is_time_synced() { return time_synced; }
 
 private:
   const char* ssid;

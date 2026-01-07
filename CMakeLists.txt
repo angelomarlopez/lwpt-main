@@ -1,4 +1,4 @@
-idf_component_register(SRCS "lwpt.cpp" "WifiManager.cpp" "HttpClient.cpp" "HttpManager.cpp"
+idf_component_register(SRCS "lwpt.cpp" "WifiManager.cpp" "HttpClient.cpp" "HttpManager.cpp" "Persist.cpp"
                     INCLUDE_DIRS "."
                     REQUIRES
                     mdns

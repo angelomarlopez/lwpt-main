@@ -171,3 +171,11 @@ void WifiManager::time_sync_task( void* ) {
   time_sync_in_progress = false;
   vTaskDelete( nullptr );
 }
+
+bool WifiManager::wait_for_time_sync( TickType_t timeout_ticks ) const {
+  TickType_t start = xTaskGetTickCount();
+  while ( !time_synced && ( xTaskGetTickCount() - start ) < timeout_ticks ) {
+    vTaskDelay( pdMS_TO_TICKS( 200 ) );
+  }
+  return time_synced;
+}
