@@ -161,7 +161,7 @@ void main_task( void* param ) {
 
     if ( job.is_running() ) {
       if ( current_state && !previous_state ) {
-        job.increment();
+        job.increment( std::stoi( std::string( PUNCHES ) ));
         send_job_update( "update" ); 
         previous_state = current_state;
       }
