@@ -180,9 +180,9 @@ void main_task( void* param ) {
         send_job_update( "timedout" );
       }
 
-      if ( relay.is_on() ) { relay.off(); }
-    } else {
       if ( !relay.is_on() ) { relay.on(); }
+    } else {
+      if ( relay.is_on() ) { relay.off(); }
     }
 
     vTaskDelay( pdMS_TO_TICKS( 100 ) );
